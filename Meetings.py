@@ -1,23 +1,3 @@
-meeting_list = [
-    {
-        "meeting_id": "M1",
-        "student_id": "101",
-        "mentor_name": "Dr. Ramesh",
-        "date": "2026-11-20",
-        "topic": "Academic Review",
-        "status": "Completed"
-    },
-    {
-        "meeting_id": "M2",
-        "student_id": "102",
-        "mentor_name": "Prof. Anitha",
-        "date": "2026-11-28",
-        "topic": "Minor Project Discussion",
-        "status": "Scheduled"
-    }
-]
-
-
 def schedule_meeting():
     print("\n--- Schedule Meeting ---")
     meeting_id = "M" + str(len(meeting_list) + 1)
