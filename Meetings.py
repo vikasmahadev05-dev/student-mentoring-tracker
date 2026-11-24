@@ -1,6 +1,6 @@
 # ==============================================================================
 # Student Mentoring Tracker - Meetings Module (Phase 1)
-# Procedural programming using functions, loops, conditionals, and list of dicts.
+# Procedural programming using functions, loops, match-case (switch case), and list of dicts.
 # ==============================================================================
 
 # In-memory data structure storing meetings as a list of dictionaries
@@ -83,17 +83,19 @@ def update_meeting():
             print("3. Mark as Completed")
             choice = input("Enter choice (1-3): ").strip()
 
-            if choice == "1":
-                m["date"] = input("Enter new date (YYYY-MM-DD): ").strip()
-                print("Meeting date updated successfully!")
-            elif choice == "2":
-                m["topic"] = input("Enter new topic: ").strip()
-                print("Meeting topic updated successfully!")
-            elif choice == "3":
-                m["status"] = "Completed"
-                print("Meeting marked as Completed!")
-            else:
-                print("Invalid choice!")
+            # Switch-case using Python's match-case
+            match choice:
+                case "1":
+                    m["date"] = input("Enter new date (YYYY-MM-DD): ").strip()
+                    print("Meeting date updated successfully!")
+                case "2":
+                    m["topic"] = input("Enter new topic: ").strip()
+                    print("Meeting topic updated successfully!")
+                case "3":
+                    m["status"] = "Completed"
+                    print("Meeting marked as Completed!")
+                case _:
+                    print("Invalid choice!")
             return
 
     print("Meeting not found!")
@@ -113,7 +115,7 @@ def delete_meeting():
     print("Meeting not found!")
 
 
-# Menu-Driven Loop
+# Menu-Driven Loop using Switch Case (match-case)
 def meeting_menu():
     while True:
         print("\n" + "=" * 35)
@@ -129,21 +131,23 @@ def meeting_menu():
 
         choice = input("Enter your choice (1-6): ").strip()
 
-        if choice == "1":
-            schedule_meeting()
-        elif choice == "2":
-            view_meetings()
-        elif choice == "3":
-            search_meetings()
-        elif choice == "4":
-            update_meeting()
-        elif choice == "5":
-            delete_meeting()
-        elif choice == "6":
-            print("Returning to Main Menu...")
-            break
-        else:
-            print("Invalid choice! Please enter a number between 1 and 6.")
+        # Switch-case implementation
+        match choice:
+            case "1":
+                schedule_meeting()
+            case "2":
+                view_meetings()
+            case "3":
+                search_meetings()
+            case "4":
+                update_meeting()
+            case "5":
+                delete_meeting()
+            case "6":
+                print("Returning to Main Menu...")
+                break
+            case _:
+                print("Invalid choice! Please enter a number between 1 and 6.")
 
 
 # Direct execution entry point
