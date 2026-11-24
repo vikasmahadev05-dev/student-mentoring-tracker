@@ -4,138 +4,71 @@ MAIN MENU (main.py)
 MCA Minor Project - Phase 1: Procedural Programming
 
 Submodules:
-  1. Student & Mentor     (Member 1 - students.py)
-  2. Meetings             (Member 2 - meetings.py)
-  3. Action Items         (Member 3 - actions.py)
-  4. Follow-up & Progress (Member 4 - progress.py)
+  1. Student & Mentor Management (Member 1 - students.py)
+  2. Meeting Management          (Member 2 - meetings.py)
+  3. Action Item Management      (Member 3 - actions.py)
+  4. Follow-up & Progress        (Member 4 - progress.py)
 """
 
 import sys
-import os
+from pathlib import Path
 
-# Add parent directory to path so imports work from anywhere
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Add project root and src directory to sys.path
+src_dir = Path(__file__).resolve().parent
+root_dir = src_dir.parent
+for p in [str(root_dir), str(src_dir)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-# Import module 2: meetings
+from student_management.students import student_mentor_menu
+from action_management.actions import action_menu
+from progress_tracking.progress import progress_menu
+
+# Meeting Management (Member 2)
 try:
-    from src.meeting_management import meetings
-except ImportError:
-    meetings = None
-
-
-def open_students_menu():
-    """Member 1: Student & Mentor submenu."""
+    from meeting_management.meetings import meeting_menu
+except (ImportError, AttributeError):
     try:
-        from src.student_management import students
-        if hasattr(students, "student_menu"):
-            students.student_menu()
-        else:
-            print("\n[INFO] Member 1 (Student & Mentor) module is currently under development.")
+        from src.meeting_management.meetings import meeting_menu
     except (ImportError, AttributeError):
-        print("\n[INFO] Member 1 (Student & Mentor) module is currently under development.")
-
-
-def open_meetings_menu():
-    """Member 2: Meetings submenu."""
-    if meetings and hasattr(meetings, "meeting_menu"):
-        meetings.meeting_menu()
-    else:
-        print("\n[!] Meetings module could not be loaded.")
-
-
-def open_actions_menu():
-    """Member 3: Action Items submenu."""
-    try:
-        from src.action_management import actions
-        if hasattr(actions, "actions_menu"):
-            actions.actions_menu()
-        elif hasattr(actions, "view_actions"):
-            # Provide menu wrapper if member 3 hasn't wrapped it yet
-            while True:
-                print("\n" + "=" * 50)
-                print("            ACTION ITEMS MENU")
-                print("=" * 50)
-                print("1. Create Action Item")
-                print("2. View All Action Items")
-                print("3. Search Action Items by Student ID")
-                print("4. Update Action Item")
-                print("5. Mark Action Item Completed")
-                print("6. View Pending Action Items")
-                print("7. View Completed Action Items")
-                print("8. View Overdue Action Items")
-                print("9. Back to Main Menu")
-                print("=" * 50)
-                ch = input("Enter choice (1-9): ").strip()
-                if ch == "1":
-                    actions.create_action()
-                elif ch == "2":
-                    actions.view_actions()
-                elif ch == "3":
-                    actions.search_actions()
-                elif ch == "4":
-                    actions.update_action()
-                elif ch == "5":
-                    actions.complete_action()
-                elif ch == "6":
-                    actions.view_pending_actions()
-                elif ch == "7":
-                    actions.view_completed_actions()
-                elif ch == "8":
-                    actions.get_overdue_actions()
-                elif ch == "9":
-                    break
-                else:
-                    print("[!] Invalid choice.")
-        else:
-            print("\n[INFO] Member 3 (Action Items) module is currently under development.")
-    except (ImportError, AttributeError):
-        print("\n[INFO] Member 3 (Action Items) module is currently under development.")
-
-
-def open_progress_menu():
-    """Member 4: Follow-up & Progress submenu."""
-    try:
-        from src.progress_tracking import progress
-        if hasattr(progress, "tracking_menu"):
-            progress.tracking_menu()
-        else:
-            print("\n[INFO] Member 4 (Follow-up & Progress) module is currently under development.")
-    except (ImportError, AttributeError):
-        print("\n[INFO] Member 4 (Follow-up & Progress) module is currently under development.")
+        def meeting_menu():
+            print("\n" + "=" * 40)
+            print("          MEETING MANAGEMENT")
+            print("=" * 40)
+            print("[!] This module is currently being developed by Member 2.")
+            print("Returning to Main Menu...")
 
 
 def main_menu():
-    """
-    Main Menu for the Student Mentoring Tracker application.
-    Coordinates between the 4 team members' modules.
-    """
+    """Main Menu loop calling each module's submenu."""
     while True:
-        print("\n" + "=" * 60)
-        print("              STUDENT MENTORING TRACKER")
-        print("               MAIN MENU - Phase 1")
-        print("=" * 60)
-        print("  1. Student & Mentor       (Member 1 - students.py)")
-        print("  2. Meetings               (Member 2 - meetings.py)")
-        print("  3. Action Items           (Member 3 - actions.py)")
-        print("  4. Follow-up & Progress   (Member 4 - progress.py)")
-        print("  5. Exit")
-        print("=" * 60)
+        print("\n" + "=" * 40)
+        print("     STUDENT MENTORING TRACKER")
+        print("       (Phase 1 Application)")
+        print("=" * 40)
+        print("1. Student & Mentor Management")
+        print("2. Meeting Management")
+        print("3. Action Item Management")
+        print("4. Follow-up & Progress Tracking")
+        print("5. Exit Application")
+        print("=" * 40)
 
         choice = input("Enter your choice (1-5): ").strip()
 
         if choice == "1":
-            open_students_menu()
+            student_mentor_menu()
         elif choice == "2":
-            open_meetings_menu()
+            meeting_menu()
         elif choice == "3":
-            open_actions_menu()
+            action_menu()
         elif choice == "4":
-            open_progress_menu()
+            progress_menu()
         elif choice == "5":
-            print("\nExiting Student Mentoring Tracker. Goodbye!")
+            print("\nThank you for using Student Mentoring Tracker!")
+            print("Session ended.")
             break
         else:
-            print("[!] Invalid option. Please enter a number between 1 and 5.")
+            print("[!] Invalid choice! Please select a number from 1 to 5.")
 
 
 if __name__ == "__main__":
