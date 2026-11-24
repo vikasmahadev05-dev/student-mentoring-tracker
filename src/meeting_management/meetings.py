@@ -35,7 +35,8 @@ def schedule_meeting():
         "status": "Scheduled"
     }
     meeting_list.append(meeting)
-    print("\nMeeting scheduled successfully! Meeting ID:", meeting_id)
+    print("Meeting scheduled successfully!")
+    print("Meeting ID:", meeting_id)
 
 
 def view_meetings():
@@ -44,8 +45,14 @@ def view_meetings():
         print("No meetings found!")
         return
 
-    for m in meeting_list:
-        print("ID:", m["meeting_id"], "| Student:", m["student_id"], "| Mentor:", m["mentor_name"], "| Date:", m["date"], "| Topic:", m["topic"], "| Status:", m["status"])
+    for meeting in meeting_list:
+        print("Meeting ID:", meeting["meeting_id"])
+        print("Student ID:", meeting["student_id"])
+        print("Mentor Name:", meeting["mentor_name"])
+        print("Date:", meeting["date"])
+        print("Topic:", meeting["topic"])
+        print("Status:", meeting["status"])
+        print("-------------------------")
 
 
 def search_meetings():
@@ -53,21 +60,26 @@ def search_meetings():
     student_id = input("Enter Student ID to search: ")
     found = False
 
-    for m in meeting_list:
-        if m["student_id"] == student_id:
-            print("ID:", m["meeting_id"], "| Mentor:", m["mentor_name"], "| Date:", m["date"], "| Topic:", m["topic"], "| Status:", m["status"])
+    for meeting in meeting_list:
+        if meeting["student_id"] == student_id:
+            print("Meeting ID:", meeting["meeting_id"])
+            print("Mentor Name:", meeting["mentor_name"])
+            print("Date:", meeting["date"])
+            print("Topic:", meeting["topic"])
+            print("Status:", meeting["status"])
+            print("-------------------------")
             found = True
 
     if not found:
-        print("No meetings found for Student ID:", student_id)
+        print("No meetings found for this Student ID.")
 
 
 def update_meeting():
     print("\n--- Update Meeting ---")
     meeting_id = input("Enter Meeting ID to update: ")
 
-    for m in meeting_list:
-        if m["meeting_id"] == meeting_id:
+    for meeting in meeting_list:
+        if meeting["meeting_id"] == meeting_id:
             print("1. Update Date")
             print("2. Update Topic")
             print("3. Mark as Completed")
@@ -75,13 +87,15 @@ def update_meeting():
 
             match choice:
                 case "1":
-                    m["date"] = input("Enter new date (YYYY-MM-DD): ")
-                    print("Meeting date updated successfully!")
+                    new_date = input("Enter new date (YYYY-MM-DD): ")
+                    meeting["date"] = new_date
+                    print("Date updated successfully!")
                 case "2":
-                    m["topic"] = input("Enter new topic: ")
-                    print("Meeting topic updated successfully!")
+                    new_topic = input("Enter new topic: ")
+                    meeting["topic"] = new_topic
+                    print("Topic updated successfully!")
                 case "3":
-                    m["status"] = "Completed"
+                    meeting["status"] = "Completed"
                     print("Meeting marked as Completed!")
                 case _:
                     print("Invalid choice!")
@@ -94,10 +108,10 @@ def delete_meeting():
     print("\n--- Delete Meeting ---")
     meeting_id = input("Enter Meeting ID to delete: ")
 
-    for m in meeting_list:
-        if m["meeting_id"] == meeting_id:
-            meeting_list.remove(m)
-            print("Meeting", meeting_id, "deleted successfully!")
+    for meeting in meeting_list:
+        if meeting["meeting_id"] == meeting_id:
+            meeting_list.remove(meeting)
+            print("Meeting deleted successfully!")
             return
 
     print("Meeting not found!")
@@ -105,18 +119,15 @@ def delete_meeting():
 
 def meeting_menu():
     while True:
-        print("\n" + "=" * 35)
-        print("      MEETING MANAGEMENT MENU")
-        print("=" * 35)
+        print("\n--- Meeting Menu ---")
         print("1. Schedule Meeting")
         print("2. View All Meetings")
         print("3. Search Meetings by Student ID")
-        print("4. Update / Complete Meeting")
+        print("4. Update Meeting")
         print("5. Delete Meeting")
         print("6. Exit")
-        print("=" * 35)
 
-        choice = input("Enter your choice (1-6): ")
+        choice = input("Enter choice (1-6): ")
 
         match choice:
             case "1":
@@ -130,10 +141,10 @@ def meeting_menu():
             case "5":
                 delete_meeting()
             case "6":
-                print("Returning to Main Menu...")
+                print("Exiting...")
                 break
             case _:
-                print("Invalid choice! Please enter a number between 1 and 6.")
+                print("Invalid choice, please try again.")
 
 
 if __name__ == "__main__":
