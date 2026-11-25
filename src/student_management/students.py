@@ -6,7 +6,7 @@ Description:
     and connects students with their appropriate assigned mentor.
 """
 
-from shared_data import students, mentors
+from data.sample_data import students, mentors
 
 
 def get_mentor_by_id(mentor_id):
@@ -25,6 +25,33 @@ def get_student_by_id(student_id):
     return None
 
 
+def format_mentor_info(mentor_id):
+    """Helper: return readable mentor label or 'Not Assigned'."""
+    if not mentor_id:
+        return "Not Assigned"
+    mentor = get_mentor_by_id(mentor_id)
+    return f"{mentor_id} - {mentor['name']}" if mentor else mentor_id
+
+
+def print_student_details(student, indent=""):
+    """Helper: print a student's details with optional indentation."""
+    mentor_info = format_mentor_info(student["mentor_id"])
+    print(f"{indent}Student ID      : {student['student_id']}")
+    print(f"{indent}Name            : {student['name']}")
+    print(f"{indent}Department      : {student['department']}")
+    print(f"{indent}Year of Study   : Year {student['year']}")
+    print(f"{indent}Contact         : {student['contact']}")
+    print(f"{indent}Assigned Mentor : {mentor_info}")
+    print("-" * 40)
+
+
+def print_available_mentors():
+    """Helper: list all available mentors in short form."""
+    print("\nAvailable Mentors:")
+    for mentor in mentors:
+        print(f"  {mentor['mentor_id']} - {mentor['name']} ({mentor['department']})")
+
+
 # -------------------------------------------------------------
 # Student Operations
 # -------------------------------------------------------------
@@ -40,7 +67,6 @@ def add_student():
         print("[!] Student ID cannot be empty.")
         return
 
-    # Check for duplicate Student ID
     if get_student_by_id(student_id):
         print(f"[!] Student ID '{student_id}' already exists!")
         return
@@ -51,8 +77,7 @@ def add_student():
         return
 
     department = input("Enter Department (e.g. MCA, BCA): ").strip().upper()
-    
-    # Year validation
+
     while True:
         year_input = input("Enter Year of Study (1-5): ").strip()
         if year_input.isdigit() and 1 <= int(year_input) <= 5:
@@ -62,14 +87,10 @@ def add_student():
 
     contact = input("Enter Contact Number: ").strip()
 
-    # Optional mentor assignment during student addition
     mentor_id = None
     if mentors:
-        print("\nAvailable Mentors:")
-        for m in mentors:
-            print(f"  {m['mentor_id']} - {m['name']} ({m['department']})")
-        assign_now = input("Assign a mentor now? (y/n): ").strip().lower()
-        if assign_now == "y":
+        print_available_mentors()
+        if input("Assign a mentor now? (y/n): ").strip().lower() == "y":
             chosen_mentor = input("Enter Mentor ID: ").strip().upper()
             if get_mentor_by_id(chosen_mentor):
                 mentor_id = chosen_mentor
@@ -77,15 +98,14 @@ def add_student():
             else:
                 print("[!] Mentor ID not found. Student registered without mentor.")
 
-    student = {
+    students.append({
         "student_id": student_id,
         "name": name,
         "department": department,
         "year": year,
         "contact": contact,
-        "mentor_id": mentor_id
-    }
-    students.append(student)
+        "mentor_id": mentor_id,
+    })
     print(f"\n[✔] Student '{name}' (ID: {student_id}) added successfully!")
 
 
@@ -99,20 +119,9 @@ def view_students():
         print("[!] No students registered yet.")
         return
 
-    for idx, s in enumerate(students, start=1):
-        mentor_info = "Not Assigned"
-        if s["mentor_id"]:
-            mentor = get_mentor_by_id(s["mentor_id"])
-            mentor_info = f"{s['mentor_id']} - {mentor['name']}" if mentor else s["mentor_id"]
-
+    for idx, student in enumerate(students, start=1):
         print(f"\nStudent #{idx}")
-        print(f"  Student ID      : {s['student_id']}")
-        print(f"  Name            : {s['name']}")
-        print(f"  Department      : {s['department']}")
-        print(f"  Year of Study   : Year {s['year']}")
-        print(f"  Contact         : {s['contact']}")
-        print(f"  Assigned Mentor : {mentor_info}")
-        print("-" * 40)
+        print_student_details(student, indent="  ")
 
 
 def search_student():
@@ -128,19 +137,8 @@ def search_student():
         print(f"[!] No student found with ID: {student_id}")
         return
 
-    mentor_info = "Not Assigned"
-    if student["mentor_id"]:
-        mentor = get_mentor_by_id(student["mentor_id"])
-        mentor_info = f"{student['mentor_id']} - {mentor['name']}" if mentor else student["mentor_id"]
-
     print("\n" + "-" * 40)
-    print(f"Student ID      : {student['student_id']}")
-    print(f"Name            : {student['name']}")
-    print(f"Department      : {student['department']}")
-    print(f"Year of Study   : Year {student['year']}")
-    print(f"Contact         : {student['contact']}")
-    print(f"Assigned Mentor : {mentor_info}")
-    print("-" * 40)
+    print_student_details(student)
 
 
 def update_student():
@@ -228,13 +226,12 @@ def add_mentor():
     department = input("Enter Department: ").strip().upper()
     contact = input("Enter Contact Number: ").strip()
 
-    mentor = {
+    mentors.append({
         "mentor_id": mentor_id,
         "name": name,
         "department": department,
-        "contact": contact
-    }
-    mentors.append(mentor)
+        "contact": contact,
+    })
     print(f"\n[✔] Mentor '{name}' (ID: {mentor_id}) added successfully!")
 
 
@@ -248,16 +245,15 @@ def view_mentors():
         print("[!] No mentors registered yet.")
         return
 
-    for idx, m in enumerate(mentors, start=1):
-        print(f"\nMentor #{idx}")
-        print(f"  Mentor ID   : {m['mentor_id']}")
-        print(f"  Name        : {m['name']}")
-        print(f"  Department  : {m['department']}")
-        print(f"  Contact     : {m['contact']}")
-        
-        # Display assigned mentees
-        mentees = [s["name"] for s in students if s.get("mentor_id") == m["mentor_id"]]
+    for idx, mentor in enumerate(mentors, start=1):
+        mentees = [s["name"] for s in students if s.get("mentor_id") == mentor["mentor_id"]]
         mentee_str = ", ".join(mentees) if mentees else "None assigned"
+
+        print(f"\nMentor #{idx}")
+        print(f"  Mentor ID   : {mentor['mentor_id']}")
+        print(f"  Name        : {mentor['name']}")
+        print(f"  Department  : {mentor['department']}")
+        print(f"  Contact     : {mentor['contact']}")
         print(f"  Mentees     : {mentee_str}")
         print("-" * 40)
 
@@ -275,10 +271,7 @@ def assign_mentor():
         return
 
     print(f"Selected Student: {student['name']} (Current Mentor: {student.get('mentor_id') or 'None'})")
-
-    print("\nAvailable Mentors:")
-    for m in mentors:
-        print(f"  {m['mentor_id']} - {m['name']} ({m['department']})")
+    print_available_mentors()
 
     mentor_id = input("Enter Mentor ID to assign: ").strip().upper()
     mentor = get_mentor_by_id(mentor_id)

@@ -3,32 +3,45 @@ Module 4: Follow-up & Progress Tracking
 Author: Vikas Mahadev (Member 4)
 Description:
     The analytical and monitoring engine for the mentoring tracker.
-    Uses Student and Action Item records to track follow-up deadlines,
-    detect overdue tasks, flag at-risk students, and calculate progress summaries.
+    Uses Student, Mentor, Meeting, and Action Item records to:
+    - Show daily overdue/due-today alerts
+    - Plan follow-ups for the next 7 days
+    - Track student scorecards and flag at-risk students
+    - Measure mentor workload and department progress
+    - Audit meetings to make sure follow-up tasks were created
 """
 
 from datetime import date
-from shared_data import actions, students
+from data.sample_data import actions, students, mentors, meetings
 
+
+# -------------------------------------------------------------
+# Basic Helper Functions
+# -------------------------------------------------------------
 
 def get_student(student_id):
-    """Helper: Find student dictionary by ID."""
-    for s in students:
-        if s["student_id"] == student_id:
-            return s
-    return None
+    """Find and return a student dictionary by ID, or None."""
+    return next((s for s in students if s["student_id"] == student_id), None)
+
+
+def get_student_name(student_id):
+    """Return student name if found, otherwise fall back to student_id."""
+    student = get_student(student_id)
+    return student["name"] if student else student_id
+
+
+def get_mentor_name(mentor_id):
+    """Return mentor name if found, otherwise 'Not Assigned' or mentor_id."""
+    if not mentor_id:
+        return "Not Assigned"
+    mentor = next((m for m in mentors if m["mentor_id"] == mentor_id), None)
+    return mentor["name"] if mentor else mentor_id
 
 
 def get_action_timeline_category(action):
     """
-    Helper: Categorize an action based on its status and follow-up date.
-    Returns: 'COMPLETED', 'OVERDUE', 'DUE_TODAY', or 'UPCOMING'
-    
-    Business Rules (SRS):
-    - Completed actions are never marked overdue.
-    - Pending actions with follow_up_date < today are OVERDUE.
-    - Pending actions with follow_up_date == today are DUE_TODAY.
-    - Pending actions with follow_up_date > today are UPCOMING.
+    Categorize an action item based on its status and follow-up date.
+    Returns: 'COMPLETED', 'OVERDUE', 'DUE_TODAY', 'UPCOMING', or 'PENDING'
     """
     if action["status"] == "Completed":
         return "COMPLETED"
@@ -41,10 +54,46 @@ def get_action_timeline_category(action):
 
     if follow_up < today:
         return "OVERDUE"
-    elif follow_up == today:
+    if follow_up == today:
         return "DUE_TODAY"
-    else:
-        return "UPCOMING"
+    return "UPCOMING"
+
+
+def summarize_actions(action_items):
+    """Count total, completed, pending, overdue, and due-today tasks."""
+    total = len(action_items)
+    completed = sum(1 for a in action_items if get_action_timeline_category(a) == "COMPLETED")
+    overdue = sum(1 for a in action_items if get_action_timeline_category(a) == "OVERDUE")
+    due_today = sum(1 for a in action_items if get_action_timeline_category(a) == "DUE_TODAY")
+    pending = total - completed
+    percentage = (completed / total) * 100 if total > 0 else 0.0
+
+    return {
+        "total": total,
+        "completed": completed,
+        "pending": pending,
+        "overdue": overdue,
+        "due_today": due_today,
+        "percentage": percentage,
+    }
+
+
+def get_performance_rating(overdue, percentage):
+    """Return a readable performance label for a student."""
+    if overdue > 0:
+        return "Needs Attention (Has Overdue Tasks)"
+    if percentage >= 75.0:
+        return "Excellent (On Track)"
+    if percentage >= 50.0:
+        return "Satisfactory (Making Progress)"
+    return "Pending Progress (< 50% Completed)"
+
+
+def build_progress_bar(percentage, width=10):
+    """Build a text progress bar like [#####-----] 50.0% (drives UI bars in Phase 4)."""
+    filled = max(0, min(width, int((percentage / 100) * width)))
+    bar = ("#" * filled) + ("-" * (width - filled))
+    return f"[{bar}] {percentage:.1f}%"
 
 
 # -------------------------------------------------------------
@@ -52,53 +101,38 @@ def get_action_timeline_category(action):
 # -------------------------------------------------------------
 
 def daily_follow_up_radar():
-    """
-    Actionable daily briefing for mentors showing items requiring immediate attention.
-    Combines Overdue actions and actions Due Today.
-    """
+    """Show overdue and due-today actions needing immediate attention."""
     today = date.today()
     print("\n" + "=" * 50)
     print("           DAILY FOLLOW-UP RADAR")
     print(f"           Today's Date: {today}")
     print("=" * 50)
 
-    overdue_items = []
-    due_today_items = []
+    overdue_items = [a for a in actions if get_action_timeline_category(a) == "OVERDUE"]
+    due_today_items = [a for a in actions if get_action_timeline_category(a) == "DUE_TODAY"]
 
-    for a in actions:
-        cat = get_action_timeline_category(a)
-        if cat == "OVERDUE":
-            overdue_items.append(a)
-        elif cat == "DUE_TODAY":
-            due_today_items.append(a)
-
-    # Section 1: Overdue Alerts
     print("\n[!] OVERDUE ACTIONS (IMMEDIATE ATTENTION NEEDED):")
     print("-" * 50)
     if not overdue_items:
         print("  [✔] None! All actions are on schedule.")
     else:
-        for idx, a in enumerate(overdue_items, start=1):
-            s = get_student(a["student_id"])
-            s_name = s["name"] if s else a["student_id"]
-            follow_up = date.fromisoformat(a["follow_up_date"])
-            days_late = (today - follow_up).days
-            print(f"  {idx}. [{a['action_id']}] {s_name} ({a['student_id']})")
-            print(f"     Task      : {a['description']}")
-            print(f"     Follow-up : {a['follow_up_date']} ({days_late} day(s) overdue!)")
+        for idx, action in enumerate(overdue_items, start=1):
+            s_name = get_student_name(action["student_id"])
+            days_late = (today - date.fromisoformat(action["follow_up_date"])).days
+            print(f"  {idx}. [{action['action_id']}] {s_name} ({action['student_id']})")
+            print(f"     Task      : {action['description']}")
+            print(f"     Follow-up : {action['follow_up_date']} ({days_late} day(s) overdue!)")
 
-    # Section 2: Due Today
     print("\n[★] ACTIONS DUE FOR FOLLOW-UP TODAY:")
     print("-" * 50)
     if not due_today_items:
         print("  [i] No actions scheduled for follow-up today.")
     else:
-        for idx, a in enumerate(due_today_items, start=1):
-            s = get_student(a["student_id"])
-            s_name = s["name"] if s else a["student_id"]
-            print(f"  {idx}. [{a['action_id']}] {s_name} ({a['student_id']})")
-            print(f"     Task      : {a['description']}")
-            print(f"     Due Date  : {a['due_date']}")
+        for idx, action in enumerate(due_today_items, start=1):
+            s_name = get_student_name(action["student_id"])
+            print(f"  {idx}. [{action['action_id']}] {s_name} ({action['student_id']})")
+            print(f"     Task      : {action['description']}")
+            print(f"     Due Date  : {action['due_date']}")
     print("=" * 50)
 
 
@@ -107,7 +141,7 @@ def daily_follow_up_radar():
 # -------------------------------------------------------------
 
 def view_pending_timeline():
-    """Displays all pending actions categorized by urgency with countdowns."""
+    """Display all pending actions with urgency status and day countdown."""
     print("\n" + "=" * 50)
     print("       PENDING ACTIONS TIMELINE & DEADLINES")
     print("=" * 50)
@@ -118,15 +152,12 @@ def view_pending_timeline():
         return
 
     today = date.today()
-    for idx, a in enumerate(pending_actions, start=1):
-        s = get_student(a["student_id"])
-        s_name = s["name"] if s else a["student_id"]
-        category = get_action_timeline_category(a)
+    for idx, action in enumerate(pending_actions, start=1):
+        s_name = get_student_name(action["student_id"])
+        category = get_action_timeline_category(action)
 
-        # Calculate days difference
         try:
-            follow_up = date.fromisoformat(a["follow_up_date"])
-            diff = (follow_up - today).days
+            diff = (date.fromisoformat(action["follow_up_date"]) - today).days
             if diff < 0:
                 timeline_str = f"{abs(diff)} days OVERDUE"
             elif diff == 0:
@@ -137,10 +168,10 @@ def view_pending_timeline():
             timeline_str = "Date unavailable"
 
         print(f"\nTask #{idx} - [{category}]")
-        print(f"  Action ID      : {a['action_id']}")
-        print(f"  Student        : {s_name} ({a['student_id']})")
-        print(f"  Description    : {a['description']}")
-        print(f"  Follow-up Date : {a['follow_up_date']} ({timeline_str})")
+        print(f"  Action ID      : {action['action_id']}")
+        print(f"  Student        : {s_name} ({action['student_id']})")
+        print(f"  Description    : {action['description']}")
+        print(f"  Follow-up Date : {action['follow_up_date']} ({timeline_str})")
         print("-" * 50)
 
 
@@ -149,23 +180,22 @@ def view_pending_timeline():
 # -------------------------------------------------------------
 
 def view_completed():
-    """Displays all completed action items."""
+    """Display all completed action items."""
     print("\n" + "=" * 50)
     print("         COMPLETED ACTIONS (ARCHIVE)")
     print("=" * 50)
 
-    completed = [a for a in actions if a["status"] == "Completed"]
-    if not completed:
+    completed_actions = [a for a in actions if a["status"] == "Completed"]
+    if not completed_actions:
         print("[!] No completed actions recorded yet.")
         return
 
-    for idx, a in enumerate(completed, start=1):
-        s = get_student(a["student_id"])
-        s_name = s["name"] if s else a["student_id"]
-        print(f"\nCompleted #{idx} [{a['action_id']}]")
-        print(f"  Student     : {s_name} ({a['student_id']})")
-        print(f"  Task        : {a['description']}")
-        print(f"  Completed   : [✔] Successfully finished")
+    for idx, action in enumerate(completed_actions, start=1):
+        s_name = get_student_name(action["student_id"])
+        print(f"\nCompleted #{idx} [{action['action_id']}]")
+        print(f"  Student     : {s_name} ({action['student_id']})")
+        print(f"  Task        : {action['description']}")
+        print("  Completed   : [✔] Successfully finished")
         print("-" * 50)
 
 
@@ -174,11 +204,7 @@ def view_completed():
 # -------------------------------------------------------------
 
 def student_summary():
-    """
-    Generates an individual student's mentoring progress scorecard.
-    Calculates completion percentage, status breakdown, and performance rating.
-    Formula: Progress = (Completed Actions / Total Actions) * 100
-    """
+    """Generate an individual student's mentoring progress scorecard."""
     print("\n" + "=" * 50)
     print("      STUDENT-WISE PROGRESS SCORECARD")
     print("=" * 50)
@@ -191,41 +217,12 @@ def student_summary():
         return
 
     student_actions = [a for a in actions if a["student_id"] == student_id]
-
     if not student_actions:
         print(f"\nNo action items have been assigned yet to {student['name']} ({student_id}).")
         return
 
-    total = len(student_actions)
-    completed = 0
-    pending = 0
-    overdue = 0
-    due_today = 0
-
-    for a in student_actions:
-        cat = get_action_timeline_category(a)
-        if cat == "COMPLETED":
-            completed += 1
-        elif cat == "OVERDUE":
-            overdue += 1
-            pending += 1
-        elif cat == "DUE_TODAY":
-            due_today += 1
-            pending += 1
-        else:
-            pending += 1
-
-    percentage = (completed / total) * 100 if total > 0 else 0.0
-
-    # Performance Rating based on percentage and overdue status
-    if overdue > 0:
-        performance_rating = "Needs Attention (Has Overdue Tasks)"
-    elif percentage >= 75.0:
-        performance_rating = "Excellent (On Track)"
-    elif percentage >= 50.0:
-        performance_rating = "Satisfactory (Making Progress)"
-    else:
-        performance_rating = "Pending Progress (< 50% Completed)"
+    stats = summarize_actions(student_actions)
+    performance_rating = get_performance_rating(stats["overdue"], stats["percentage"])
 
     print("\n" + "=" * 50)
     print(f"         MENTORING SCORECARD: {student['name'].upper()}")
@@ -234,18 +231,18 @@ def student_summary():
     print(f"Department & Year  : {student['department']} (Year {student['year']})")
     print(f"Assigned Mentor    : {student.get('mentor_id') or 'Not Assigned'}")
     print("-" * 50)
-    print(f"Total Assigned     : {total}")
-    print(f"Completed Tasks    : {completed}")
-    print(f"Pending Tasks      : {pending}")
-    print(f"  - Overdue Tasks  : {overdue}")
-    print(f"  - Due Today      : {due_today}")
-    print(f"Overall Progress   : {percentage:.1f}%")
+    print(f"Total Assigned     : {stats['total']}")
+    print(f"Completed Tasks    : {stats['completed']}")
+    print(f"Pending Tasks      : {stats['pending']}")
+    print(f"  - Overdue Tasks  : {stats['overdue']}")
+    print(f"  - Due Today      : {stats['due_today']}")
+    print(f"Overall Progress   : {build_progress_bar(stats['percentage'])}")
     print(f"Performance Status : {performance_rating}")
     print("-" * 50)
     print("Assigned Actions Breakdown:")
-    for a in student_actions:
-        cat = get_action_timeline_category(a)
-        print(f"  [{cat:<9}] {a['action_id']} - {a['description'][:30]}")
+    for action in student_actions:
+        cat = get_action_timeline_category(action)
+        print(f"  [{cat:<9}] {action['action_id']} - {action['description'][:30]}")
     print("=" * 50)
 
 
@@ -254,44 +251,20 @@ def student_summary():
 # -------------------------------------------------------------
 
 def students_needing_attention():
-    """
-    Identifies students who have overdue tasks or low progress (< 50%).
-    Helps mentors proactively intervene for struggling students.
-    """
+    """Flag students who have overdue tasks or low completion (< 50%)."""
     print("\n" + "=" * 50)
     print("     STUDENTS REQUIRING MENTOR ATTENTION")
     print("=" * 50)
 
     flagged_students = []
-
-    for s in students:
-        s_id = s["student_id"]
-        s_actions = [a for a in actions if a["student_id"] == s_id]
-
+    for student in students:
+        s_actions = [a for a in actions if a["student_id"] == student["student_id"]]
         if not s_actions:
             continue
 
-        overdue_count = 0
-        completed_count = 0
-        for a in s_actions:
-            cat = get_action_timeline_category(a)
-            if cat == "OVERDUE":
-                overdue_count += 1
-            elif cat == "COMPLETED":
-                completed_count += 1
-
-        total = len(s_actions)
-        pct = (completed_count / total) * 100
-
-        # Flag if overdue tasks exist OR completion < 50%
-        if overdue_count > 0 or (pct < 50.0 and total > 1):
-            flagged_students.append({
-                "student": s,
-                "overdue": overdue_count,
-                "total": total,
-                "completed": completed_count,
-                "percentage": pct
-            })
+        stats = summarize_actions(s_actions)
+        if stats["overdue"] > 0 or (stats["percentage"] < 50.0 and stats["total"] > 1):
+            flagged_students.append({"student": student, **stats})
 
     if not flagged_students:
         print("[✔] Excellent! No students currently require urgent intervention.")
@@ -312,32 +285,192 @@ def students_needing_attention():
 # -------------------------------------------------------------
 
 def cohort_dashboard():
-    """
-    Provides an executive summary of all mentoring activities
-    across the entire department/cohort.
-    """
+    """Display an executive summary across the entire cohort."""
     print("\n" + "=" * 50)
     print("       OVERALL COHORT MENTORING DASHBOARD")
     print("=" * 50)
 
-    total_students = len(students)
-    total_actions = len(actions)
-    completed_actions = sum(1 for a in actions if a["status"] == "Completed")
-    pending_actions = sum(1 for a in actions if a["status"] == "Pending")
-    overdue_actions = sum(1 for a in actions if get_action_timeline_category(a) == "OVERDUE")
-    due_today_actions = sum(1 for a in actions if get_action_timeline_category(a) == "DUE_TODAY")
+    stats = summarize_actions(actions)
 
-    overall_pct = (completed_actions / total_actions) * 100 if total_actions > 0 else 0.0
+    print(f"Total Registered Students : {len(students)}")
+    print(f"Total Registered Mentors  : {len(mentors)}")
+    print(f"Total Meetings Tracked    : {len(meetings)}")
+    print(f"Total Action Items Tracked: {stats['total']}")
+    print("-" * 50)
+    print(f"Completed Actions         : {stats['completed']}")
+    print(f"Pending Actions           : {stats['pending']}")
+    print(f"  • Overdue Actions       : {stats['overdue']} (Needs Follow-up)")
+    print(f"  • Due Today             : {stats['due_today']}")
+    print("-" * 50)
+    print(f"Overall Cohort Completion : {build_progress_bar(stats['percentage'])}")
+    print("=" * 50)
 
-    print(f"Total Registered Students : {total_students}")
-    print(f"Total Action Items Tracked: {total_actions}")
+
+# -------------------------------------------------------------
+# 7. Weekly Follow-up Planner (Next 7 Days Forecast)
+# -------------------------------------------------------------
+
+def weekly_follow_up_planner():
+    """Group all pending tasks into Overdue, Today, Next 7 Days, and Later."""
+    today = date.today()
+    print("\n" + "=" * 50)
+    print("       WEEKLY FOLLOW-UP PLANNER (7 DAYS)")
+    print(f"       Planning From: {today}")
+    print("=" * 50)
+
+    buckets = {
+        "OVERDUE (ACTION NEEDED)": [],
+        "DUE TODAY": [],
+        "DUE IN NEXT 7 DAYS": [],
+        "UPCOMING LATER (> 7 DAYS)": [],
+    }
+
+    for action in actions:
+        if action["status"] != "Pending":
+            continue
+        try:
+            days_left = (date.fromisoformat(action["follow_up_date"]) - today).days
+        except (ValueError, KeyError):
+            continue
+
+        if days_left < 0:
+            buckets["OVERDUE (ACTION NEEDED)"].append(action)
+        elif days_left == 0:
+            buckets["DUE TODAY"].append(action)
+        elif days_left <= 7:
+            buckets["DUE IN NEXT 7 DAYS"].append(action)
+        else:
+            buckets["UPCOMING LATER (> 7 DAYS)"].append(action)
+
+    for title, item_list in buckets.items():
+        print(f"\n[{title}] - {len(item_list)} item(s)")
+        print("-" * 50)
+        if not item_list:
+            print("  No tasks in this bucket.")
+        else:
+            for action in item_list:
+                s_name = get_student_name(action["student_id"])
+                print(f"  • [{action['action_id']}] {s_name} ({action['student_id']})")
+                print(f"    {action['description']} (Follow-up: {action['follow_up_date']})")
+    print("=" * 50)
+
+
+# -------------------------------------------------------------
+# 8. Mentor Workload & Performance Report
+# -------------------------------------------------------------
+
+def mentor_performance_report():
+    """Show each mentor's mentees, meetings, and action completion rate."""
+    print("\n" + "=" * 50)
+    print("       MENTOR WORKLOAD & PERFORMANCE REPORT")
+    print("=" * 50)
+
+    if not mentors:
+        print("[!] No mentors registered yet.")
+        return
+
+    for mentor in mentors:
+        m_id = mentor["mentor_id"]
+        mentees = [s for s in students if s.get("mentor_id") == m_id]
+        mentee_ids = {s["student_id"] for s in mentees}
+        mentee_text = ", ".join(s["name"] for s in mentees) if mentees else "None"
+
+        mentor_meetings = [m for m in meetings if m.get("mentor_id") == m_id]
+        completed_meetings = sum(1 for m in mentor_meetings if m["status"] == "Completed")
+        scheduled_meetings = len(mentor_meetings) - completed_meetings
+
+        mentor_actions = [a for a in actions if a["student_id"] in mentee_ids]
+        stats = summarize_actions(mentor_actions)
+
+        print(f"\nMentor: {mentor['name']} ({m_id}) - Dept: {mentor['department']}")
+        print(f"  Assigned Mentees   : {len(mentees)} ({mentee_text})")
+        print(f"  Meetings           : {completed_meetings} Completed, {scheduled_meetings} Scheduled")
+        print(f"  Mentee Action Items: {stats['total']} Total | {stats['completed']} Done | {stats['overdue']} Overdue")
+        print(f"  Completion Rate    : {build_progress_bar(stats['percentage'])}")
+        print("-" * 50)
+
+
+# -------------------------------------------------------------
+# 9. Department Breakdown & Student Leaderboard
+# -------------------------------------------------------------
+
+def department_and_leaderboard_report():
+    """Show department-wise progress and rank students by completion rate."""
+    print("\n" + "=" * 50)
+    print("    DEPARTMENT STATS & STUDENT LEADERBOARD")
+    print("=" * 50)
+
+    departments = list(dict.fromkeys(s["department"] for s in students))
+
+    print("\n[A] DEPARTMENT-WISE PROGRESS:")
     print("-" * 50)
-    print(f"Completed Actions         : {completed_actions}")
-    print(f"Pending Actions           : {pending_actions}")
-    print(f"  • Overdue Actions       : {overdue_actions} (Needs Follow-up)")
-    print(f"  • Due Today             : {due_today_actions}")
+    for dept in departments:
+        dept_ids = {s["student_id"] for s in students if s["department"] == dept}
+        dept_actions = [a for a in actions if a["student_id"] in dept_ids]
+        stats = summarize_actions(dept_actions)
+        print(f"  {dept} ({len(dept_ids)} student(s))")
+        print(f"    Tasks: {stats['completed']}/{stats['total']} Completed | Overdue: {stats['overdue']}")
+        print(f"    Rate : {build_progress_bar(stats['percentage'])}")
+
+    leaderboard = []
+    for student in students:
+        s_actions = [a for a in actions if a["student_id"] == student["student_id"]]
+        if s_actions:
+            leaderboard.append({**student, **summarize_actions(s_actions)})
+
+    leaderboard.sort(key=lambda entry: entry["percentage"], reverse=True)
+
+    print("\n[B] STUDENT PROGRESS LEADERBOARD:")
     print("-" * 50)
-    print(f"Overall Cohort Completion : {overall_pct:.1f}%")
+    if not leaderboard:
+        print("  No student action items available yet.")
+    else:
+        for rank, entry in enumerate(leaderboard, start=1):
+            bar = build_progress_bar(entry["percentage"])
+            status = get_performance_rating(entry["overdue"], entry["percentage"])
+            print(f"  #{rank} {entry['name']} ({entry['student_id']} - {entry['department']})")
+            print(f"     {bar} ({entry['completed']}/{entry['total']} tasks) - {status}")
+    print("=" * 50)
+
+
+# -------------------------------------------------------------
+# 10. Meeting Follow-up Audit
+# -------------------------------------------------------------
+
+def meeting_follow_up_audit():
+    """Check each meeting for linked action items and flag missing follow-ups."""
+    print("\n" + "=" * 50)
+    print("          MEETING FOLLOW-UP AUDIT")
+    print("=" * 50)
+
+    if not meetings:
+        print("[!] No meetings recorded in the system.")
+        return
+
+    missing_follow_ups = 0
+
+    for meeting in meetings:
+        m_id = meeting["meeting_id"]
+        s_name = get_student_name(meeting["student_id"])
+        m_name = get_mentor_name(meeting.get("mentor_id"))
+        linked_actions = [a for a in actions if a.get("meeting_id") == m_id]
+        stats = summarize_actions(linked_actions)
+
+        print(f"\nMeeting [{m_id}] - {meeting['date']} ({meeting['status']})")
+        print(f"  Student & Mentor : {s_name} with {m_name}")
+        print(f"  Topic            : {meeting.get('description', '')}")
+
+        if stats["total"] == 0:
+            if meeting["status"] == "Completed":
+                print("  [!] ALERT: Completed meeting has NO follow-up action items!")
+                missing_follow_ups += 1
+            else:
+                print("  [i] Scheduled meeting - no tasks assigned yet.")
+        else:
+            print(f"  Follow-up Tasks  : {stats['completed']}/{stats['total']} Completed | {stats['overdue']} Overdue")
+        print("-" * 50)
+
+    print(f"Audit Summary: {missing_follow_ups} completed meeting(s) missing follow-up tasks.")
     print("=" * 50)
 
 
@@ -357,10 +490,14 @@ def progress_menu():
         print("4. Student-wise Progress Scorecard")
         print("5. Flag Students Requiring Attention (At-Risk)")
         print("6. Overall Cohort Mentoring Dashboard")
-        print("7. Back to Main Menu")
+        print("7. Weekly Follow-up Planner (Next 7 Days)")
+        print("8. Mentor Workload & Performance Report")
+        print("9. Department Stats & Student Leaderboard")
+        print("10. Meeting Follow-up Audit")
+        print("11. Back to Main Menu")
         print("=" * 50)
 
-        choice = input("Enter your choice (1-7): ").strip()
+        choice = input("Enter your choice (1-11): ").strip()
 
         if choice == "1":
             daily_follow_up_radar()
@@ -375,7 +512,15 @@ def progress_menu():
         elif choice == "6":
             cohort_dashboard()
         elif choice == "7":
+            weekly_follow_up_planner()
+        elif choice == "8":
+            mentor_performance_report()
+        elif choice == "9":
+            department_and_leaderboard_report()
+        elif choice == "10":
+            meeting_follow_up_audit()
+        elif choice == "11":
             print("\nReturning to Main Menu...")
             break
         else:
-            print("[!] Invalid choice! Please select 1 to 7.")
+            print("[!] Invalid choice! Please select 1 to 11.")
